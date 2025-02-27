@@ -19,17 +19,32 @@ import { useControls, Leva } from "leva";
 // ----------------------------------------------------------------
 // ErrorBoundary Component to catch errors in model loading
 // ----------------------------------------------------------------
-class ErrorBoundary extends React.Component {
-  constructor(props) {
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends React.Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
   }
-  static getDerivedStateFromError(error) {
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
-  componentDidCatch(error, errorInfo) {
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("ErrorBoundary caught an error", error, errorInfo);
   }
+
   render() {
     if (this.state.hasError) {
       return (
@@ -43,7 +58,7 @@ class ErrorBoundary extends React.Component {
               color: "#fff",
             }}
           >
-            Error: {this.state.error.message}
+            Error: {this.state.error?.message}
           </div>
         </Html>
       );
@@ -75,8 +90,14 @@ function LoadingFallback() {
 // ----------------------------------------------------------------
 // ObjectUploader Component
 // ----------------------------------------------------------------
-function ObjectUploader({ setModelUrl }) {
-  const handleFileChange = (event) => {
+function ObjectUploader({
+  setModelUrl,
+}: {
+  setModelUrl: (url: string) => void;
+}) {
+  const handleFileChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     if (event.target.files && event.target.files.length > 0) {
       const file = event.target.files[0];
       const url = URL.createObjectURL(file);
@@ -114,12 +135,17 @@ function ObjectUploader({ setModelUrl }) {
 // ----------------------------------------------------------------
 // Curtain (Model) Component
 // ----------------------------------------------------------------
-function Curtain({ modelUrl, texture }) {
-  // useGLTF will throw if the file is invalid or mis-served.
-  const { scene } = useGLTF(modelUrl);
+function Curtain({
+  modelUrl,
+  texture,
+}: {
+  modelUrl: string;
+  texture: THREE.Texture | null;
+}) {
+  const { scene } = useGLTF(modelUrl) as any;
 
   useEffect(() => {
-    scene.traverse((child) => {
+    scene.traverse((child: any) => {
       if (child.isMesh) {
         child.material = new MeshStandardMaterial({
           color: 0xffffff,
@@ -148,9 +174,9 @@ function App() {
     { label: "Curtain 3", url: "/assets/models/curtain3.glb" },
     { label: "Curtain 4", url: "/assets/models/curtain4.glb" },
   ];
-  const [modelUrl, setModelUrl] = useState(modelOptions[0].url);
+  const [modelUrl, setModelUrl] = useState<string>(modelOptions[0].url);
 
-  function handleModelSelect(url) {
+  function handleModelSelect(url: string) {
     startTransitionFn(() => {
       setModelUrl(url);
     });
@@ -165,9 +191,9 @@ function App() {
     { label: "Texture 3", url: "/assets/textures/texture3.jpg" },
     { label: "Texture 4", url: "/assets/textures/texture4.jpg" },
   ];
-  const [textureUrl, setTextureUrl] = useState(textureOptions[0].url);
+  const [textureUrl, setTextureUrl] = useState<string>(textureOptions[0].url);
 
-  function handleTextureSelect(url) {
+  function handleTextureSelect(url: string) {
     startTransitionFn(() => {
       setTextureUrl(url);
     });
