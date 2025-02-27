@@ -113,10 +113,10 @@ function App() {
   // Built-in Curtain Models
   // --------------------------------------------------------------
   const modelOptions = [
-    { label: "Curtain 1", url: "/assets/models/curtain1.glb" },
-    { label: "Curtain 2", url: "/assets/models/curtain2.glb" },
-    { label: "Curtain 3", url: "/assets/models/curtain3.glb" },
-    { label: "Curtain 4", url: "/assets/models/curtain4.glb" },
+    { label: "Curtain 1", url: "https://github.com/dev-safiurrehman/textures-viewer-master/raw/refs/heads/main/public/assets/models/curtain1.glb" },
+    { label: "Curtain 2", url: "https://github.com/dev-safiurrehman/textures-viewer-master/raw/refs/heads/main/public/assets/models/curtain2.glb" },
+    { label: "Curtain 3", url: "https://github.com/dev-safiurrehman/textures-viewer-master/raw/refs/heads/main/public/assets/models/curtain3.glb" },
+    { label: "Curtain 4", url: "https://github.com/dev-safiurrehman/textures-viewer-master/raw/refs/heads/main/public/assets/models/curtain4.glb" },
   ];
   const [modelUrl, setModelUrl] = useState<string>(modelOptions[0].url);
 
