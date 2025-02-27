@@ -5,7 +5,6 @@ import React, {
   startTransition,
   useTransition,
   CSSProperties,
-  useRef,
 } from "react";
 import { Canvas, useLoader } from "@react-three/fiber";
 import { OrbitControls, Environment, useGLTF, Html } from "@react-three/drei";
@@ -16,6 +15,42 @@ import {
   RepeatWrapping,
 } from "three";
 import { useControls, Leva } from "leva";
+
+// ----------------------------------------------------------------
+// ErrorBoundary Component to catch errors in model loading
+// ----------------------------------------------------------------
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Html center>
+          <div
+            style={{
+              background: "rgba(255,0,0,0.8)",
+              padding: "8px 12px",
+              borderRadius: 4,
+              fontSize: 14,
+              color: "#fff",
+            }}
+          >
+            Error: {this.state.error.message}
+          </div>
+        </Html>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ----------------------------------------------------------------
 // A small loading fallback with <Html> from drei.
@@ -40,8 +75,8 @@ function LoadingFallback() {
 // ----------------------------------------------------------------
 // ObjectUploader Component
 // ----------------------------------------------------------------
-function ObjectUploader({ setModelUrl }: { setModelUrl: (url: string) => void }) {
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+function ObjectUploader({ setModelUrl }) {
+  const handleFileChange = (event) => {
     if (event.target.files && event.target.files.length > 0) {
       const file = event.target.files[0];
       const url = URL.createObjectURL(file);
@@ -79,17 +114,12 @@ function ObjectUploader({ setModelUrl }: { setModelUrl: (url: string) => void })
 // ----------------------------------------------------------------
 // Curtain (Model) Component
 // ----------------------------------------------------------------
-function Curtain({
-  modelUrl,
-  texture,
-}: {
-  modelUrl: string;
-  texture: THREE.Texture | null;
-}) {
-  const { scene } = useGLTF(modelUrl) as any;
+function Curtain({ modelUrl, texture }) {
+  // useGLTF will throw if the file is invalid or mis-served.
+  const { scene } = useGLTF(modelUrl);
 
   useEffect(() => {
-    scene.traverse((child: any) => {
+    scene.traverse((child) => {
       if (child.isMesh) {
         child.material = new MeshStandardMaterial({
           color: 0xffffff,
@@ -118,9 +148,9 @@ function App() {
     { label: "Curtain 3", url: "/assets/models/curtain3.glb" },
     { label: "Curtain 4", url: "/assets/models/curtain4.glb" },
   ];
-  const [modelUrl, setModelUrl] = useState<string>(modelOptions[0].url);
+  const [modelUrl, setModelUrl] = useState(modelOptions[0].url);
 
-  function handleModelSelect(url: string) {
+  function handleModelSelect(url) {
     startTransitionFn(() => {
       setModelUrl(url);
     });
@@ -135,9 +165,9 @@ function App() {
     { label: "Texture 3", url: "/assets/textures/texture3.jpg" },
     { label: "Texture 4", url: "/assets/textures/texture4.jpg" },
   ];
-  const [textureUrl, setTextureUrl] = useState<string>(textureOptions[0].url);
+  const [textureUrl, setTextureUrl] = useState(textureOptions[0].url);
 
-  function handleTextureSelect(url: string) {
+  function handleTextureSelect(url) {
     startTransitionFn(() => {
       setTextureUrl(url);
     });
@@ -197,7 +227,6 @@ function App() {
   // --------------------------------------------------------------
   // Left Panel (Leva-like style)
   // --------------------------------------------------------------
-  // We'll replicate the dark "Leva look": dark background, light text, subtle rounding, etc.
   const panelStyle: CSSProperties = {
     position: "absolute",
     top: 20,
@@ -303,7 +332,7 @@ function App() {
         </div>
       </div>
 
-      {/* Leva Panel => top-right by default */}
+      {/* Leva Panel */}
       <Leva collapsed={false} oneLineLabels hideCopyButton />
 
       {/* 3D Canvas */}
@@ -313,17 +342,19 @@ function App() {
           <Environment files={`/assets/environments/${EnvironmentMap}.hdr`} />
         )}
 
-        {/* Orbit Controls => rotate, zoom, pan */}
+        {/* Orbit Controls */}
         <OrbitControls enablePan enableZoom enableRotate />
 
         {/* Lights */}
         <directionalLight position={[5, 10, 5]} intensity={lightIntensity} />
         <ambientLight intensity={0.3} />
 
-        {/* Suspense for the model */}
-        <Suspense fallback={<LoadingFallback />}>
-          <Curtain modelUrl={modelUrl} texture={texture} />
-        </Suspense>
+        {/* Model with error boundary and suspense */}
+        <ErrorBoundary>
+          <Suspense fallback={<LoadingFallback />}>
+            <Curtain modelUrl={modelUrl} texture={texture} />
+          </Suspense>
+        </ErrorBoundary>
       </Canvas>
     </div>
   );
