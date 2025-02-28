@@ -113,10 +113,10 @@ function App() {
   // Built-in Curtain Models
   // --------------------------------------------------------------
   const modelOptions = [
-    { label: "Curtain 1", url: "https://acunlkftz6rzylc6.public.blob.vercel-storage.com/curtain1-PiGAC9JDKy03usM4Fg5PG3ekSth0Ps.glb" },
-    { label: "Curtain 2", url: "/assets/models/curtain2.glb" },
-    { label: "Curtain 3", url: "/assets/models/curtain3.glb" },
-    { label: "Curtain 4", url: "/assets/models/curtain4.glb" },
+    { label: "Curtain 1", url: "https://acunlkftz6rzylc6.public.blob.vercel-storage.com/curtain4-KCMSf8nPv96kqJY06Xi4XilrwuUXZm.glb" },
+    { label: "Curtain 2", url: "https://acunlkftz6rzylc6.public.blob.vercel-storage.com/curtain2-jmGCu1E296IqSdu08pNqw6l8uf7n26.glb" },
+    { label: "Curtain 3", url: "https://acunlkftz6rzylc6.public.blob.vercel-storage.com/curtain3-RgAWwPu6nxtz6dz5UizoIafVLDOQsC.glb" },
+    { label: "Curtain 4", url: "https://acunlkftz6rzylc6.public.blob.vercel-storage.com/curtain1-PiGAC9JDKy03usM4Fg5PG3ekSth0Ps.glb" },
   ];
   const [modelUrl, setModelUrl] = useState<string>(modelOptions[0].url);
 
