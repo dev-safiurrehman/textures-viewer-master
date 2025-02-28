@@ -5,7 +5,6 @@ import React, {
   startTransition,
   useTransition,
   CSSProperties,
-  useRef,
 } from "react";
 import { Canvas, useLoader } from "@react-three/fiber";
 import { OrbitControls, Environment, useGLTF, Html } from "@react-three/drei";
@@ -38,17 +37,18 @@ function LoadingFallback() {
 }
 
 // ----------------------------------------------------------------
-// ObjectUploader Component
+// TextureUploader Component
 // ----------------------------------------------------------------
-function ObjectUploader({ setModelUrl }: { setModelUrl: (url: string) => void }) {
+function TextureUploader({
+  onUpload,
+}: {
+  onUpload: (texture: { label: string; url: string; custom: boolean }) => void;
+}) {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       const file = event.target.files[0];
       const url = URL.createObjectURL(file);
-      // Wrap in a transition to avoid "synchronous Suspense" warnings
-      startTransition(() => {
-        setModelUrl(url);
-      });
+      onUpload({ label: file.name, url, custom: true });
     }
   };
 
@@ -57,7 +57,7 @@ function ObjectUploader({ setModelUrl }: { setModelUrl: (url: string) => void })
       <label style={{ fontSize: 13, cursor: "pointer" }}>
         <input
           type="file"
-          accept=".gltf,.glb"
+          accept="image/*"
           style={{ display: "none" }}
           onChange={handleFileChange}
         />
@@ -69,7 +69,7 @@ function ObjectUploader({ setModelUrl }: { setModelUrl: (url: string) => void })
             color: "#ccc",
           }}
         >
-          Upload Custom Model
+          Upload Texture
         </span>
       </label>
     </div>
@@ -110,38 +110,55 @@ function App() {
   const [, startTransitionFn] = useTransition();
 
   // --------------------------------------------------------------
-  // Built-in Curtain Models
+  // Only Curtain4 Model is used
   // --------------------------------------------------------------
-  const modelOptions = [
-    { label: "Curtain 1", url: "https://acunlkftz6rzylc6.public.blob.vercel-storage.com/curtain4-KCMSf8nPv96kqJY06Xi4XilrwuUXZm.glb" },
-    { label: "Curtain 2", url: "https://acunlkftz6rzylc6.public.blob.vercel-storage.com/curtain2-jmGCu1E296IqSdu08pNqw6l8uf7n26.glb" },
-    { label: "Curtain 3", url: "https://acunlkftz6rzylc6.public.blob.vercel-storage.com/curtain3-RgAWwPu6nxtz6dz5UizoIafVLDOQsC.glb" },
-    { label: "Curtain 4", url: "https://acunlkftz6rzylc6.public.blob.vercel-storage.com/curtain1-PiGAC9JDKy03usM4Fg5PG3ekSth0Ps.glb" },
-  ];
-  const [modelUrl, setModelUrl] = useState<string>(modelOptions[0].url);
-
-  function handleModelSelect(url: string) {
-    startTransitionFn(() => {
-      setModelUrl(url);
-    });
-  }
+  const modelUrl =
+    "https://acunlkftz6rzylc6.public.blob.vercel-storage.com/curtain1-PiGAC9JDKy03usM4Fg5PG3ekSth0Ps.glb";
 
   // --------------------------------------------------------------
-  // Textures
+  // Textures State (Default and Custom)
   // --------------------------------------------------------------
-  const textureOptions = [
-    { label: "Texture 1", url: "/assets/textures/texture1.jpg" },
-    { label: "Texture 2", url: "/assets/textures/texture2.jpg" },
-    { label: "Texture 3", url: "/assets/textures/texture3.jpg" },
-    { label: "Texture 4", url: "/assets/textures/texture4.jpg" },
+  const initialTextureOptions = [
+    { label: "Texture 1", url: "/assets/textures/texture1.jpg", custom: false },
+    { label: "Texture 2", url: "/assets/textures/texture2.jpg", custom: false },
+    { label: "Texture 3", url: "/assets/textures/texture3.jpg", custom: false },
+    { label: "Texture 4", url: "/assets/textures/texture4.jpg", custom: false },
   ];
-  const [textureUrl, setTextureUrl] = useState<string>(textureOptions[0].url);
+  const [textureOptions, setTextureOptions] = useState(initialTextureOptions);
+  const [textureUrl, setTextureUrl] = useState<string>(
+    initialTextureOptions[0].url
+  );
 
   function handleTextureSelect(url: string) {
     startTransitionFn(() => {
       setTextureUrl(url);
     });
   }
+
+  const addCustomTexture = (texture: {
+    label: string;
+    url: string;
+    custom: boolean;
+  }) => {
+    setTextureOptions((prev) => [...prev, texture]);
+    // Automatically select the newly uploaded texture
+    setTextureUrl(texture.url);
+  };
+
+  const removeCustomTexture = (url: string) => {
+    setTextureOptions((prev) => {
+      const newOptions = prev.filter((tex) => tex.url !== url);
+      if (textureUrl === url) {
+        // If the removed texture is currently selected, fallback to the first available texture.
+        if (newOptions.length > 0) {
+          setTextureUrl(newOptions[0].url);
+        } else {
+          setTextureUrl("");
+        }
+      }
+      return newOptions;
+    });
+  };
 
   // --------------------------------------------------------------
   // Leva Controls (Right panel)
@@ -195,9 +212,8 @@ function App() {
   }, [texture, mirrorWrapX, mirrorWrapY, repeatX, repeatY]);
 
   // --------------------------------------------------------------
-  // Left Panel (Leva-like style)
+  // Left Panel (Leva-like style) for Texture Selection, Upload, and Preview
   // --------------------------------------------------------------
-  // We'll replicate the dark "Leva look": dark background, light text, subtle rounding, etc.
   const panelStyle: CSSProperties = {
     position: "absolute",
     top: 20,
@@ -251,54 +267,54 @@ function App() {
 
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
-      {/* LEFT PANEL (models, textures, preview) */}
+      {/* LEFT PANEL (texture selection, upload, and preview) */}
       <div style={panelStyle}>
-        {/* Models Section */}
-        <div>
-          <div style={sectionTitle}>Select Model</div>
-          <div style={radioGroupStyle}>
-            {modelOptions.map((option) => (
-              <label key={option.url} style={radioLabelStyle}>
-                <input
-                  type="radio"
-                  name="model"
-                  checked={modelUrl === option.url}
-                  onChange={() => handleModelSelect(option.url)}
-                  style={{ cursor: "pointer" }}
-                />
-                <span>{option.label}</span>
-              </label>
-            ))}
-          </div>
-          <ObjectUploader setModelUrl={setModelUrl} />
-        </div>
-
         {/* Textures Section */}
         <div>
           <div style={sectionTitle}>Select Texture</div>
           <div style={radioGroupStyle}>
             {textureOptions.map((option) => (
-              <label key={option.url} style={radioLabelStyle}>
-                <input
-                  type="radio"
-                  name="texture"
-                  checked={textureUrl === option.url}
-                  onChange={() => handleTextureSelect(option.url)}
-                  style={{ cursor: "pointer" }}
-                />
-                <span>{option.label}</span>
-              </label>
+              <div
+                key={option.url}
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <label style={radioLabelStyle}>
+                  <input
+                    type="radio"
+                    name="texture"
+                    checked={textureUrl === option.url}
+                    onChange={() => handleTextureSelect(option.url)}
+                    style={{ cursor: "pointer" }}
+                  />
+                  <span>{option.label}</span>
+                </label>
+                {option.custom && (
+                  <button
+                    style={{
+                      marginLeft: "auto",
+                      background: "red",
+                      border: "none",
+                      color: "white",
+                      cursor: "pointer",
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                    }}
+                    onClick={() => removeCustomTexture(option.url)}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             ))}
           </div>
+
+          {/* Texture Uploader */}
+          <TextureUploader onUpload={addCustomTexture} />
 
           {/* Texture Preview */}
           <div style={texturePreviewStyle}>
             <div style={{ fontWeight: 500 }}>Preview:</div>
-            <img
-              src={textureUrl}
-              alt="Texture Preview"
-              style={previewImgStyle}
-            />
+            <img src={textureUrl} alt="Texture Preview" style={previewImgStyle} />
           </div>
         </div>
       </div>
@@ -313,7 +329,7 @@ function App() {
           <Environment files={`/assets/environments/${EnvironmentMap}.hdr`} />
         )}
 
-        {/* Orbit Controls => rotate, zoom, pan */}
+        {/* Orbit Controls */}
         <OrbitControls enablePan enableZoom enableRotate />
 
         {/* Lights */}
