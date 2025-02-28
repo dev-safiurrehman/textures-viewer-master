@@ -5,6 +5,7 @@ import React, {
   startTransition,
   useTransition,
   CSSProperties,
+  useRef,
 } from "react";
 import { Canvas, useLoader } from "@react-three/fiber";
 import { OrbitControls, Environment, useGLTF, Html } from "@react-three/drei";
@@ -15,57 +16,6 @@ import {
   RepeatWrapping,
 } from "three";
 import { useControls, Leva } from "leva";
-
-// ----------------------------------------------------------------
-// ErrorBoundary Component to catch errors in model loading
-// ----------------------------------------------------------------
-interface ErrorBoundaryProps {
-  children: React.ReactNode;
-}
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-}
-
-class ErrorBoundary extends React.Component<
-  ErrorBoundaryProps,
-  ErrorBoundaryState
-> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("ErrorBoundary caught an error", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <Html center>
-          <div
-            style={{
-              background: "rgba(255,0,0,0.8)",
-              padding: "8px 12px",
-              borderRadius: 4,
-              fontSize: 14,
-              color: "#fff",
-            }}
-          >
-            Error: {this.state.error?.message}
-          </div>
-        </Html>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 // ----------------------------------------------------------------
 // A small loading fallback with <Html> from drei.
@@ -90,14 +40,8 @@ function LoadingFallback() {
 // ----------------------------------------------------------------
 // ObjectUploader Component
 // ----------------------------------------------------------------
-function ObjectUploader({
-  setModelUrl,
-}: {
-  setModelUrl: (url: string) => void;
-}) {
-  const handleFileChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
+function ObjectUploader({ setModelUrl }: { setModelUrl: (url: string) => void }) {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       const file = event.target.files[0];
       const url = URL.createObjectURL(file);
@@ -169,7 +113,7 @@ function App() {
   // Built-in Curtain Models
   // --------------------------------------------------------------
   const modelOptions = [
-    { label: "Curtain 1", url: "/assets/models/curtain1.glb" },
+    { label: "Curtain 1", url: "https://acunlkftz6rzylc6.public.blob.vercel-storage.com/curtain1-PiGAC9JDKy03usM4Fg5PG3ekSth0Ps.glb" },
     { label: "Curtain 2", url: "/assets/models/curtain2.glb" },
     { label: "Curtain 3", url: "/assets/models/curtain3.glb" },
     { label: "Curtain 4", url: "/assets/models/curtain4.glb" },
@@ -253,6 +197,7 @@ function App() {
   // --------------------------------------------------------------
   // Left Panel (Leva-like style)
   // --------------------------------------------------------------
+  // We'll replicate the dark "Leva look": dark background, light text, subtle rounding, etc.
   const panelStyle: CSSProperties = {
     position: "absolute",
     top: 20,
@@ -358,7 +303,7 @@ function App() {
         </div>
       </div>
 
-      {/* Leva Panel */}
+      {/* Leva Panel => top-right by default */}
       <Leva collapsed={false} oneLineLabels hideCopyButton />
 
       {/* 3D Canvas */}
@@ -368,19 +313,17 @@ function App() {
           <Environment files={`/assets/environments/${EnvironmentMap}.hdr`} />
         )}
 
-        {/* Orbit Controls */}
+        {/* Orbit Controls => rotate, zoom, pan */}
         <OrbitControls enablePan enableZoom enableRotate />
 
         {/* Lights */}
         <directionalLight position={[5, 10, 5]} intensity={lightIntensity} />
         <ambientLight intensity={0.3} />
 
-        {/* Model with error boundary and suspense */}
-        <ErrorBoundary>
-          <Suspense fallback={<LoadingFallback />}>
-            <Curtain modelUrl={modelUrl} texture={texture} />
-          </Suspense>
-        </ErrorBoundary>
+        {/* Suspense for the model */}
+        <Suspense fallback={<LoadingFallback />}>
+          <Curtain modelUrl={modelUrl} texture={texture} />
+        </Suspense>
       </Canvas>
     </div>
   );
