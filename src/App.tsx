@@ -18,7 +18,7 @@ import {
 import { useControls, Leva } from "leva";
 
 // ----------------------------------------------------------------
-// A small loading fallback with <Html> from drei.
+// Loading Fallback Component (using Html from drei)
 // ----------------------------------------------------------------
 function LoadingFallback() {
   return (
@@ -39,6 +39,7 @@ function LoadingFallback() {
 
 // ----------------------------------------------------------------
 // TextureUploader Component
+// Reads a file as a data URL and passes it to onUpload.
 // ----------------------------------------------------------------
 function TextureUploader({
   onUpload,
@@ -48,8 +49,12 @@ function TextureUploader({
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       const file = event.target.files[0];
-      const url = URL.createObjectURL(file);
-      onUpload({ label: file.name, url, custom: true });
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        onUpload({ label: file.name, url: dataUrl, custom: true });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -78,7 +83,8 @@ function TextureUploader({
 }
 
 // ----------------------------------------------------------------
-// Curtain (Model) Component
+// Curtain Component
+// Loads the Curtain4 model and applies the selected texture.
 // ----------------------------------------------------------------
 function Curtain({
   modelUrl,
@@ -107,32 +113,48 @@ function Curtain({
 // Main App Component
 // ----------------------------------------------------------------
 function App() {
-  // React 18 concurrency helper
+  // React 18 transition helper
   const [, startTransitionFn] = useTransition();
 
   // --------------------------------------------------------------
-  // Only Curtain4 Model is used
+  // Use only Curtain4 Model (hardcoded URL)
   // --------------------------------------------------------------
   const modelUrl =
     "https://acunlkftz6rzylc6.public.blob.vercel-storage.com/curtain1-PiGAC9JDKy03usM4Fg5PG3ekSth0Ps.glb";
 
   // --------------------------------------------------------------
-  // Textures State (Default and Custom)
+  // Texture Options (Default + Custom)
+  // Default textures are hardcoded; custom textures are stored in sessionStorage.
   // --------------------------------------------------------------
-  const initialTextureOptions = [
+  const defaultTextures = [
     { label: "Texture 1", url: "/assets/textures/texture1.jpg", custom: false },
     { label: "Texture 2", url: "/assets/textures/texture2.jpg", custom: false },
     { label: "Texture 3", url: "/assets/textures/texture3.jpg", custom: false },
     { label: "Texture 4", url: "/assets/textures/texture4.jpg", custom: false },
   ];
-  const [textureOptions, setTextureOptions] = useState(initialTextureOptions);
-  const [textureUrl, setTextureUrl] = useState<string>(initialTextureOptions[0].url);
+  const [textureOptions, setTextureOptions] = useState(defaultTextures);
+  const [textureUrl, setTextureUrl] = useState<string>(defaultTextures[0].url);
 
-  function handleTextureSelect(url: string) {
+  // Load custom textures from sessionStorage on mount
+  useEffect(() => {
+    const stored = sessionStorage.getItem("customTextures");
+    if (stored) {
+      const custom = JSON.parse(stored);
+      setTextureOptions([...defaultTextures, ...custom]);
+    }
+  }, []);
+
+  // Whenever textureOptions changes, update sessionStorage for custom ones
+  useEffect(() => {
+    const custom = textureOptions.filter((tex) => tex.custom);
+    sessionStorage.setItem("customTextures", JSON.stringify(custom));
+  }, [textureOptions]);
+
+  const handleTextureSelect = (url: string) => {
     startTransitionFn(() => {
       setTextureUrl(url);
     });
-  }
+  };
 
   const addCustomTexture = (texture: {
     label: string;
@@ -158,41 +180,54 @@ function App() {
   };
 
   // --------------------------------------------------------------
-  // Curtain Position State & Save/Load from LocalStorage
+  // Curtain Transform State (Position and Rotation)
+  // Loaded from localStorage (key: "curtainTransform")
   // --------------------------------------------------------------
-  const [curtainPosition, setCurtainPosition] = useState<[number, number, number]>([0, 0, 0]);
+  type Transform = { position: [number, number, number]; rotation: [number, number, number] };
+  const [curtainTransform, setCurtainTransform] = useState<Transform>({
+    position: [0, 0, 0],
+    rotation: [0, 0, 0],
+  });
   const curtainRef = useRef<THREE.Group>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem("curtainPosition");
+    const saved = localStorage.getItem("curtainTransform");
     if (saved) {
-      setCurtainPosition(JSON.parse(saved));
+      setCurtainTransform(JSON.parse(saved));
     }
   }, []);
 
-  const handleSavePosition = () => {
+  const handleSaveTransform = () => {
     if (curtainRef.current) {
       const pos = curtainRef.current.position.toArray();
-      localStorage.setItem("curtainPosition", JSON.stringify(pos));
-      setCurtainPosition(pos as [number, number, number]);
-      alert("Curtain position saved!");
+      const rot = curtainRef.current.rotation.toArray();
+      const transform: Transform = { position: pos as [number, number, number], rotation: rot as [number, number, number] };
+      localStorage.setItem("curtainTransform", JSON.stringify(transform));
+      setCurtainTransform(transform);
+      alert("Curtain transform saved!");
     }
   };
 
   // --------------------------------------------------------------
-  // Leva Controls (Right panel)
+  // Transform Mode Toggle (translate or rotate)
+  // --------------------------------------------------------------
+  const [transformMode, setTransformMode] = useState<"translate" | "rotate">("translate");
+  const toggleMode = () => {
+    setTransformMode((prev) => (prev === "translate" ? "rotate" : "translate"));
+  };
+
+  // --------------------------------------------------------------
+  // Leva Controls for Lighting, Repeat, Environment
   // --------------------------------------------------------------
   const { lightIntensity } = useControls("Lighting", {
     lightIntensity: { value: 1, min: 0, max: 10, step: 0.1 },
   });
-
   const { repeatX, repeatY, mirrorWrapX, mirrorWrapY } = useControls("Repeat", {
     repeatX: { value: 1, min: 1, max: 10, step: 1 },
     repeatY: { value: 1, min: 1, max: 10, step: 1 },
     mirrorWrapX: { value: false },
     mirrorWrapY: { value: false },
   });
-
   const { EnvironmentMap } = useControls("Environment", {
     EnvironmentMap: {
       value: "warehouse",
@@ -214,10 +249,9 @@ function App() {
   });
 
   // --------------------------------------------------------------
-  // Load & configure the selected texture
+  // Load and configure the selected texture
   // --------------------------------------------------------------
   const texture = useLoader(TextureLoader, textureUrl);
-
   useEffect(() => {
     if (texture) {
       texture.wrapS = mirrorWrapX ? MirroredRepeatWrapping : RepeatWrapping;
@@ -228,7 +262,7 @@ function App() {
   }, [texture, mirrorWrapX, mirrorWrapY, repeatX, repeatY]);
 
   // --------------------------------------------------------------
-  // UI Panel Styles (Left panel for texture controls & Save Button)
+  // UI Panel & Button Styles
   // --------------------------------------------------------------
   const panelStyle: CSSProperties = {
     position: "absolute",
@@ -247,32 +281,27 @@ function App() {
     flexDirection: "column",
     gap: 12,
   };
-
   const sectionTitle: CSSProperties = {
     fontWeight: 600,
     marginBottom: 6,
   };
-
   const radioGroupStyle: CSSProperties = {
     display: "flex",
     flexDirection: "column",
     gap: 4,
   };
-
   const radioLabelStyle: CSSProperties = {
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     gap: 6,
   };
-
   const texturePreviewStyle: CSSProperties = {
     marginTop: 8,
     display: "flex",
     flexDirection: "column",
     gap: 4,
   };
-
   const previewImgStyle: CSSProperties = {
     width: "100%",
     height: 120,
@@ -280,7 +309,6 @@ function App() {
     borderRadius: 4,
     border: "1px solid #444",
   };
-
   const saveButtonStyle: CSSProperties = {
     position: "fixed",
     top: 20,
@@ -293,15 +321,31 @@ function App() {
     cursor: "pointer",
     zIndex: 20,
   };
+  const toggleButtonStyle: CSSProperties = {
+    position: "fixed",
+    top: 60,
+    right: 20,
+    background: "#3a3a3a",
+    color: "#ccc",
+    border: "none",
+    padding: "8px 12px",
+    borderRadius: 4,
+    cursor: "pointer",
+    zIndex: 20,
+  };
 
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
-      {/* Save Button */}
-      <button style={saveButtonStyle} onClick={handleSavePosition}>
-        Save Position
+      {/* Save Transform Button */}
+      <button style={saveButtonStyle} onClick={handleSaveTransform}>
+        Save Transform
+      </button>
+      {/* Toggle Transform Mode Button */}
+      <button style={toggleButtonStyle} onClick={toggleMode}>
+        Mode: {transformMode}
       </button>
 
-      {/* LEFT PANEL (Texture selection, upload, and preview) */}
+      {/* LEFT PANEL: Texture selection, upload, and preview */}
       <div style={panelStyle}>
         <div>
           <div style={sectionTitle}>Select Texture</div>
@@ -367,9 +411,13 @@ function App() {
         <ambientLight intensity={0.3} />
 
         <Suspense fallback={<LoadingFallback />}>
-          {/* Wrap the Curtain in TransformControls so it can be moved */}
-          <TransformControls>
-            <group ref={curtainRef} position={curtainPosition}>
+          {/* Wrap the Curtain in TransformControls to allow moving/rotating */}
+          <TransformControls mode={transformMode}>
+            <group
+              ref={curtainRef}
+              position={curtainTransform.position}
+              rotation={curtainTransform.rotation}
+            >
               <Curtain modelUrl={modelUrl} texture={texture} />
             </group>
           </TransformControls>
