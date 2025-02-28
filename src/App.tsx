@@ -5,9 +5,10 @@ import React, {
   startTransition,
   useTransition,
   CSSProperties,
+  useRef,
 } from "react";
 import { Canvas, useLoader } from "@react-three/fiber";
-import { OrbitControls, Environment, useGLTF, Html } from "@react-three/drei";
+import { OrbitControls, Environment, useGLTF, Html, TransformControls } from "@react-three/drei";
 import {
   MeshStandardMaterial,
   TextureLoader,
@@ -125,9 +126,7 @@ function App() {
     { label: "Texture 4", url: "/assets/textures/texture4.jpg", custom: false },
   ];
   const [textureOptions, setTextureOptions] = useState(initialTextureOptions);
-  const [textureUrl, setTextureUrl] = useState<string>(
-    initialTextureOptions[0].url
-  );
+  const [textureUrl, setTextureUrl] = useState<string>(initialTextureOptions[0].url);
 
   function handleTextureSelect(url: string) {
     startTransitionFn(() => {
@@ -141,7 +140,6 @@ function App() {
     custom: boolean;
   }) => {
     setTextureOptions((prev) => [...prev, texture]);
-    // Automatically select the newly uploaded texture
     setTextureUrl(texture.url);
   };
 
@@ -149,7 +147,6 @@ function App() {
     setTextureOptions((prev) => {
       const newOptions = prev.filter((tex) => tex.url !== url);
       if (textureUrl === url) {
-        // If the removed texture is currently selected, fallback to the first available texture.
         if (newOptions.length > 0) {
           setTextureUrl(newOptions[0].url);
         } else {
@@ -161,14 +158,34 @@ function App() {
   };
 
   // --------------------------------------------------------------
+  // Curtain Position State & Save/Load from LocalStorage
+  // --------------------------------------------------------------
+  const [curtainPosition, setCurtainPosition] = useState<[number, number, number]>([0, 0, 0]);
+  const curtainRef = useRef<THREE.Group>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("curtainPosition");
+    if (saved) {
+      setCurtainPosition(JSON.parse(saved));
+    }
+  }, []);
+
+  const handleSavePosition = () => {
+    if (curtainRef.current) {
+      const pos = curtainRef.current.position.toArray();
+      localStorage.setItem("curtainPosition", JSON.stringify(pos));
+      setCurtainPosition(pos as [number, number, number]);
+      alert("Curtain position saved!");
+    }
+  };
+
+  // --------------------------------------------------------------
   // Leva Controls (Right panel)
   // --------------------------------------------------------------
-  // Folder: Lighting
   const { lightIntensity } = useControls("Lighting", {
     lightIntensity: { value: 1, min: 0, max: 10, step: 0.1 },
   });
 
-  // Folder: Repeat
   const { repeatX, repeatY, mirrorWrapX, mirrorWrapY } = useControls("Repeat", {
     repeatX: { value: 1, min: 1, max: 10, step: 1 },
     repeatY: { value: 1, min: 1, max: 10, step: 1 },
@@ -176,7 +193,6 @@ function App() {
     mirrorWrapY: { value: false },
   });
 
-  // Folder: Environment
   const { EnvironmentMap } = useControls("Environment", {
     EnvironmentMap: {
       value: "warehouse",
@@ -212,7 +228,7 @@ function App() {
   }, [texture, mirrorWrapX, mirrorWrapY, repeatX, repeatY]);
 
   // --------------------------------------------------------------
-  // Left Panel (Leva-like style) for Texture Selection, Upload, and Preview
+  // UI Panel Styles (Left panel for texture controls & Save Button)
   // --------------------------------------------------------------
   const panelStyle: CSSProperties = {
     position: "absolute",
@@ -265,11 +281,28 @@ function App() {
     border: "1px solid #444",
   };
 
+  const saveButtonStyle: CSSProperties = {
+    position: "fixed",
+    top: 20,
+    right: 20,
+    background: "#3a3a3a",
+    color: "#ccc",
+    border: "none",
+    padding: "8px 12px",
+    borderRadius: 4,
+    cursor: "pointer",
+    zIndex: 20,
+  };
+
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
-      {/* LEFT PANEL (texture selection, upload, and preview) */}
+      {/* Save Button */}
+      <button style={saveButtonStyle} onClick={handleSavePosition}>
+        Save Position
+      </button>
+
+      {/* LEFT PANEL (Texture selection, upload, and preview) */}
       <div style={panelStyle}>
-        {/* Textures Section */}
         <div>
           <div style={sectionTitle}>Select Texture</div>
           <div style={radioGroupStyle}>
@@ -319,26 +352,27 @@ function App() {
         </div>
       </div>
 
-      {/* Leva Panel => top-right by default */}
+      {/* Leva Panel (top-right by default) */}
       <Leva collapsed={false} oneLineLabels hideCopyButton />
 
       {/* 3D Canvas */}
       <Canvas shadows camera={{ position: [0, 2, 5], fov: 50 }}>
-        {/* Environment Map if not "none" */}
         {EnvironmentMap !== "none" && (
           <Environment files={`/assets/environments/${EnvironmentMap}.hdr`} />
         )}
 
-        {/* Orbit Controls */}
         <OrbitControls enablePan enableZoom enableRotate />
 
-        {/* Lights */}
         <directionalLight position={[5, 10, 5]} intensity={lightIntensity} />
         <ambientLight intensity={0.3} />
 
-        {/* Suspense for the model */}
         <Suspense fallback={<LoadingFallback />}>
-          <Curtain modelUrl={modelUrl} texture={texture} />
+          {/* Wrap the Curtain in TransformControls so it can be moved */}
+          <TransformControls>
+            <group ref={curtainRef} position={curtainPosition}>
+              <Curtain modelUrl={modelUrl} texture={texture} />
+            </group>
+          </TransformControls>
         </Suspense>
       </Canvas>
     </div>
