@@ -1,3 +1,4 @@
+
 import React, {
   useState,
   useEffect,
@@ -14,6 +15,7 @@ import {
   TextureLoader,
   MirroredRepeatWrapping,
   RepeatWrapping,
+  sRGBEncoding,
 } from "three";
 import { useControls, Leva } from "leva";
 
@@ -98,10 +100,15 @@ function Curtain({
   useEffect(() => {
     scene.traverse((child: any) => {
       if (child.isMesh) {
-        child.material = new MeshStandardMaterial({
+        const material = new MeshStandardMaterial({
           color: 0xffffff,
           map: texture || null,
         });
+        // Ensure the texture map uses sRGB encoding if it exists
+        if (texture && material.map) {
+          material.map.encoding = sRGBEncoding;
+        }
+        child.material = material;
       }
     });
   }, [scene, texture]);
@@ -119,8 +126,8 @@ function App() {
   // --------------------------------------------------------------
   // Use only Curtain4 Model (hardcoded URL)
   // --------------------------------------------------------------
-  const modelUrl =
-    "https://acunlkftz6rzylc6.public.blob.vercel-storage.com/curtain1-PiGAC9JDKy03usM4Fg5PG3ekSth0Ps.glb";
+  const modelUrl = "https://elasticbeanstalk-us-east-2-381492242150.s3.us-east-2.amazonaws.com/resources/_runtime/_embedded_extensions/maya/curtain1.glb";
+
 
   // --------------------------------------------------------------
   // Texture Options (Default + Custom)
@@ -254,6 +261,8 @@ function App() {
   const texture = useLoader(TextureLoader, textureUrl);
   useEffect(() => {
     if (texture) {
+      // Set the texture to use sRGB encoding to maintain its true color
+      texture.encoding = sRGBEncoding;
       texture.wrapS = mirrorWrapX ? MirroredRepeatWrapping : RepeatWrapping;
       texture.wrapT = mirrorWrapY ? MirroredRepeatWrapping : RepeatWrapping;
       texture.repeat.set(repeatX, repeatY);
@@ -400,7 +409,7 @@ function App() {
       <Leva collapsed={false} oneLineLabels hideCopyButton />
 
       {/* 3D Canvas */}
-      <Canvas shadows camera={{ position: [0, 2, 5], fov: 50 }}>
+      <Canvas shadows camera={{ position: [0, 2, 5], fov: 50 }} gl={{ outputEncoding: sRGBEncoding }}>
         {EnvironmentMap !== "none" && (
           <Environment files={`/assets/environments/${EnvironmentMap}.hdr`} />
         )}
